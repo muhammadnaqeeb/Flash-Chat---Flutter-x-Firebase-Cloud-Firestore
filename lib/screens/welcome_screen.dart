@@ -11,6 +11,7 @@ class WelcomeScreen extends StatefulWidget {
 class _WelcomeScreenState extends State<WelcomeScreen>
     with SingleTickerProviderStateMixin {
   AnimationController? controller;
+  Animation? animation;
   @override
   void initState() {
     super.initState();
@@ -18,16 +19,27 @@ class _WelcomeScreenState extends State<WelcomeScreen>
       duration: Duration(seconds: 1),
       vsync: this,
     );
+
+    animation = ColorTween(begin: Colors.blueGrey, end: Colors.white)
+        .animate(controller!);
     controller!.forward();
+
     controller!.addListener(() {
       setState(() {});
       print(controller!.value);
     });
   }
 
+// must to dispose because if it is not dispose with screen then it will live forever
+  @override
+  void dispose() {
+    controller!.dispose();
+    super.dispose();
+  }
+
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.red.withOpacity(controller!.value),
+      backgroundColor: animation!.value,
       body: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 24.0),
         child: Column(
