@@ -6,6 +6,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 final _firestore = FirebaseFirestore.instance;
+User? loggedInUser;
 
 class ChatScreen extends StatefulWidget {
   static const String id = "chat_screen";
@@ -14,8 +15,9 @@ class ChatScreen extends StatefulWidget {
 }
 
 class _ChatScreenState extends State<ChatScreen> {
+  final messageTextController = TextEditingController();
   final _auth = FirebaseAuth.instance;
-  User? loggedInUser;
+
   String? messageText;
   final _firestore = FirebaseFirestore.instance;
 
@@ -30,7 +32,6 @@ class _ChatScreenState extends State<ChatScreen> {
       final user = await _auth.currentUser;
       if (user != null) {
         loggedInUser = user;
-        print(loggedInUser!.email);
       }
     } catch (e) {
       print(e);
@@ -46,13 +47,13 @@ class _ChatScreenState extends State<ChatScreen> {
   // }
 
 // this will listen for changes, when the change occur like new message enter it will automatically run again
-  void messagesStream() async {
-    await for (var snapshot in _firestore.collection('messages').snapshots()) {
-      for (var message in snapshot.docs) {
-        print(message.data());
-      }
-    }
-  }
+  // void messagesStream() async {
+  //   await for (var snapshot in _firestore.collection('messages').snapshots()) {
+  //     for (var message in snapshot.docs) {
+  //       print(message.data());
+  //     }
+  //   }
+  // } this work is now done in Stream Builder
 
   @override
   Widget build(BuildContext context) {
@@ -61,15 +62,14 @@ class _ChatScreenState extends State<ChatScreen> {
         leading: null,
         actions: <Widget>[
           IconButton(
-              icon: Icon(Icons.close),
+              icon: const Icon(Icons.close),
               onPressed: () {
-                messagesStream();
                 //Implement logout functionality
-                // _auth.signOut();
-                // Navigator.pop(context);
+                _auth.signOut();
+                Navigator.pop(context);
               }),
         ],
-        title: Text('⚡️Chat'),
+        title: const Text('⚡️Chat'),
         backgroundColor: Colors.lightBlueAccent,
       ),
       body: SafeArea(
@@ -85,6 +85,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 children: <Widget>[
                   Expanded(
                     child: TextField(
+                      controller: messageTextController,
                       onChanged: (value) {
                         messageText = value;
                       },
@@ -93,6 +94,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   ),
                   FlatButton(
                     onPressed: () {
+                      messageTextController.clear();
                       //Implement send functionality.
                       //messageText + loggedInUser.email_
                       _firestore.collection("messages").add(
@@ -130,22 +132,32 @@ class MessagesStream extends StatelessWidget {
               ),
             );
           }
-          final messages = snapshot.data!.docs;
+          final messages = snapshot.data!.docs.reversed;
           List<MessageBubble> messagesBubbles = [];
           for (var message in messages) {
             final messageText = message["text"];
             final messageSender = message["sender"];
 
+            final currentUser = loggedInUser!.email;
+
+            if (messageSender == currentUser) {
+              // The message from the logged in user
+            }
+
             final messageBubble = MessageBubble(
               text: messageText,
               sender: messageSender,
+              isMe: messageSender == currentUser,
             );
 
             messagesBubbles.add(messageBubble);
           }
           return Expanded(
             child: ListView(
-              padding: EdgeInsets.symmetric(horizontal: 10.0, vertical: 20),
+              // listviw stick to bottom
+              reverse: true,
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 10.0, vertical: 20),
               children: messagesBubbles,
             ),
           );
@@ -156,7 +168,9 @@ class MessagesStream extends StatelessWidget {
 class MessageBubble extends StatelessWidget {
   String text;
   String sender;
-  MessageBubble({Key? key, required this.text, required this.sender})
+  bool isMe;
+  MessageBubble(
+      {Key? key, required this.text, required this.sender, required this.isMe})
       : super(key: key);
 
   @override
@@ -164,23 +178,33 @@ class MessageBubble extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.all(10.0),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.end,
+        crossAxisAlignment:
+            isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
         children: [
           Text(
             sender,
-            style: TextStyle(fontSize: 10.0, color: Colors.black54),
+            style: const TextStyle(fontSize: 10.0, color: Colors.black54),
           ),
           Material(
-            borderRadius: BorderRadius.circular(30.0),
+            borderRadius: isMe
+                ? const BorderRadius.only(
+                    topLeft: Radius.circular(30.0),
+                    bottomLeft: Radius.circular(30.0),
+                    bottomRight: Radius.circular(30.0))
+                : const BorderRadius.only(
+                    topRight: Radius.circular(30.0),
+                    bottomLeft: Radius.circular(30.0),
+                    bottomRight: Radius.circular(30.0)),
             // shadow
             elevation: 5,
-            color: Colors.lightBlue,
+            color: isMe ? Colors.lightBlue : Colors.white,
             child: Padding(
               padding:
                   const EdgeInsets.symmetric(vertical: 10.0, horizontal: 20.0),
               child: Text(
                 text,
-                style: TextStyle(fontSize: 15, color: Colors.white),
+                style: TextStyle(
+                    fontSize: 15, color: isMe ? Colors.white : Colors.black54),
               ),
             ),
           ),
